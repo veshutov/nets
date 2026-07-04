@@ -1,0 +1,11 @@
+[package]
+name = "nets"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pcap = "2.4.0"
+etherparse = "0.20.2"
+tls-parser = "0.12.2"
+hickory-proto = "0.26.1"
+dashmap = "6.2.1"
