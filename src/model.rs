@@ -3,13 +3,13 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-pub type HostName = String;
+pub type Hostname = String;
 
 pub type StatsMap = Arc<DashMap<IpAddr, HostStats>>;
 
 #[derive(Default, Clone)]
 pub struct HostStats {
-    pub hostname: Option<HostName>,
+    pub hostname: Option<Hostname>,
     pub bytes_sent: u64,
     pub bytes_received: u64,
     pub packets: u64,
@@ -21,7 +21,7 @@ impl HostStats {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub enum Protocol {
     Tcp,
     Udp,
@@ -29,7 +29,7 @@ pub enum Protocol {
 
 pub struct Attribution {
     /// remote_ip -> hostname (populated by DNS response parsing)
-    dns_cache: DashMap<IpAddr, HostName>,
+    dns_cache: DashMap<IpAddr, Hostname>,
     /// IPs belonging to this machine, so we know which side of a packet is "remote"
     local_ips: HashSet<IpAddr>,
 }
@@ -42,11 +42,11 @@ impl Attribution {
         }
     }
 
-    pub fn record_dns(&self, ip: IpAddr, hostname: HostName) {
+    pub fn record_dns(&self, ip: IpAddr, hostname: Hostname) {
         self.dns_cache.insert(ip, hostname);
     }
 
-    pub fn resolve(&self, ip: &IpAddr) -> Option<HostName> {
+    pub fn resolve(&self, ip: &IpAddr) -> Option<Hostname> {
         self.dns_cache.get(ip).map(|h| h.clone())
     }
 

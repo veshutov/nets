@@ -14,7 +14,6 @@ pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<At
                 "Could not create Capture from device {}",
                 device_name
             ))
-            .promisc(true)
             .immediate_mode(true)
             .open()
             .expect(&format!(
@@ -56,20 +55,20 @@ pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<At
                 ),
                 _ => continue,
             };
+            
+            // Retrieve hostname from dns packets
+            if protocol == Protocol::Udp && (src_port == 53 || dst_port == 53) {
+                handle_dns_packet(payload, &attribution);
+            }
 
             // Determine direction
             let Some(remote_ip) = attribution.remote_ip(src_ip, dst_ip) else {
                 continue;
             };
             let is_outgoing = remote_ip == dst_ip;
-
+            
             // Resolve hostname
-            let hostname = attribution.resolve(&remote_ip).or_else(|| {
-                if protocol == Protocol::Udp && (src_port == 53 || dst_port == 53) {
-                    handle_dns_packet(payload, &attribution);
-                }
-                attribution.resolve(&remote_ip)
-            });
+            let hostname = attribution.resolve(&remote_ip);
 
             // Update stats
             let mut entry = stats.entry(remote_ip).or_default();

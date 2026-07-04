@@ -8,7 +8,7 @@ use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     layout::Constraint,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     widgets::{Block, Borders, Row, Table},
 };
 use std::time::Duration;
@@ -80,8 +80,7 @@ pub fn run_ui(stats: StatsMap) -> io::Result<()> {
                     Block::default()
                         .borders(Borders::ALL)
                         .title(" Live Traffic ('q' – quit, 'r' – reset) "),
-                )
-                .row_highlight_style(Style::default().fg(Color::Yellow));
+                );
 
             frame.render_widget(table, area);
         })?;

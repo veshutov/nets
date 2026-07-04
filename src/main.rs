@@ -21,14 +21,14 @@ fn main() -> Result<()> {
     }
 
     let device_name = &args[1];
-    let stats: StatsMap = Arc::new(DashMap::new());
-
     let device = pcap::Device::list()?
         .into_iter()
         .find(|d| &d.name == device_name)
         .expect(&format!("Network interface {} not found", device_name));
+    
     let local_ips: HashSet<IpAddr> = device.addresses.iter().map(|a| a.addr).collect();
     let attribution = Arc::new(Attribution::new(local_ips));
+    let stats: StatsMap = Arc::new(DashMap::new());
 
     spawn_capture_thread(device, stats.clone(), attribution);
     run_ui(stats)?;
