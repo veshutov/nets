@@ -30,6 +30,9 @@ pub fn run_ui(stats: StatsMap) -> io::Result<()> {
                 if key.code == KeyCode::Char('q') {
                     break;
                 }
+                if key.code == KeyCode::Char('r') {
+                    stats.clear();
+                }
             }
         }
 
@@ -76,7 +79,7 @@ pub fn run_ui(stats: StatsMap) -> io::Result<()> {
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title(" Live Traffic (press 'q' to quit) "),
+                        .title(" Live Traffic ('q' – quit, 'r' – reset) "),
                 )
                 .row_highlight_style(Style::default().fg(Color::Yellow));
 
