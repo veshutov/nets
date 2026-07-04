@@ -70,7 +70,7 @@ pub fn run_ui(stats: StatsMap) -> io::Result<()> {
 
             let table = Table::new(table_rows, widths)
                 .header(
-                    Row::new(vec!["Host", "IP", "Sent", "Received", "Total", "Pkts"])
+                    Row::new(vec!["Host", "IP", "Sent", "Received", "Total", "Packets"])
                         .style(Style::default().add_modifier(Modifier::BOLD)),
                 )
                 .block(

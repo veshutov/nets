@@ -1,19 +1,14 @@
 use etherparse::{NetSlice, SlicedPacket, TransportSlice};
+use pcap::Device;
 use std::net::IpAddr;
 use std::sync::Arc;
 
 use crate::model::{Attribution, Protocol, RemoteEndpoint, StatsMap};
-use crate::parse::{extract_sni, handle_dns_packet, strip_link_layer};
+use crate::parse::{handle_dns_packet, handle_sni};
 
-pub fn spawn_capture_thread(device_name: &str, stats: StatsMap, attribution: Arc<Attribution>) {
-    let device_name = device_name.to_string();
+pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<Attribution>) {
     std::thread::spawn(move || {
-        let device = pcap::Device::list()
-            .expect("No devices found")
-            .into_iter()
-            .find(|d| d.name == device_name)
-            .expect(&format!("Device {} not found", device_name));
-
+        let device_name = device.name.clone();
         let mut cap = pcap::Capture::from_device(device)
             .expect(&format!(
                 "Could not create Capture from device {}",
@@ -27,13 +22,8 @@ pub fn spawn_capture_thread(device_name: &str, stats: StatsMap, attribution: Arc
                 device_name
             ));
 
-        let linktype = cap.get_datalink();
-
         while let Ok(packet) = cap.next_packet() {
-            let Some(ip_data) = strip_link_layer(packet.data, linktype) else {
-                continue;
-            };
-            let Ok(sliced) = SlicedPacket::from_ip(ip_data) else {
+            let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) else {
                 continue;
             };
 
@@ -67,29 +57,26 @@ pub fn spawn_capture_thread(device_name: &str, stats: StatsMap, attribution: Arc
                 _ => continue,
             };
 
-            // Feed attribution engine (as before)
+            // Try to extract hostname into attribution
             if protocol == Protocol::Udp && (src_port == 53 || dst_port == 53) {
                 handle_dns_packet(payload, &attribution);
             }
             if protocol == Protocol::Tcp && dst_port == 443 && !payload.is_empty() {
-                if let Some(hostname) = extract_sni(payload) {
-                    attribution.record_sni(
-                        RemoteEndpoint {
-                            ip: dst_ip,
-                            port: dst_port,
-                            protocol,
-                        },
-                        hostname,
-                    );
-                }
+                let endpoint = RemoteEndpoint {
+                    ip: dst_ip,
+                    port: dst_port,
+                    protocol,
+                };
+                handle_sni(endpoint, payload, &attribution);
             }
 
-            // Determine direction + remote IP
+            // Determine direction
             let Some(remote_ip) = attribution.remote_ip(src_ip, dst_ip) else {
                 continue;
             };
-            let is_outgoing = remote_ip == dst_ip; // we are the source
+            let is_outgoing = remote_ip == dst_ip;
 
+            // Resolve hostname
             let remote_port = if is_outgoing { dst_port } else { src_port };
             let endpoint = RemoteEndpoint {
                 ip: remote_ip,

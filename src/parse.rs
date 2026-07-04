@@ -2,7 +2,7 @@ use hickory_proto::op::Message;
 use hickory_proto::rr::RecordType;
 use tls_parser::{TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_plaintext};
 
-use crate::model::Attribution;
+use crate::model::{Attribution, RemoteEndpoint};
 
 pub fn handle_dns_packet(payload: &[u8], attribution: &Attribution) {
     let Ok(msg) = Message::from_vec(payload) else {
@@ -19,7 +19,13 @@ pub fn handle_dns_packet(payload: &[u8], attribution: &Attribution) {
     }
 }
 
-pub fn extract_sni(tcp_payload: &[u8]) -> Option<String> {
+pub fn handle_sni(endpoint: RemoteEndpoint, tcp_payload: &[u8], attribution: &Attribution) {
+    if let Some(hostname) = extract_sni(tcp_payload) {
+        attribution.record_sni(endpoint, hostname);
+    }
+}
+
+fn extract_sni(tcp_payload: &[u8]) -> Option<String> {
     let (_, record) = parse_tls_plaintext(tcp_payload).ok()?;
 
     for msg in record.msg {
@@ -36,13 +42,4 @@ pub fn extract_sni(tcp_payload: &[u8]) -> Option<String> {
         }
     }
     None
-}
-
-pub fn strip_link_layer(data: &[u8], linktype: pcap::Linktype) -> Option<&[u8]> {
-    match linktype {
-        pcap::Linktype::ETHERNET => data.get(14..),
-        pcap::Linktype::NULL | pcap::Linktype::LOOP => data.get(4..),
-        pcap::Linktype::RAW => Some(data),
-        _ => None,
-    }
 }
