@@ -3,8 +3,8 @@ use pcap::Device;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use crate::model::{Attribution, Protocol, RemoteEndpoint, StatsMap};
-use crate::parse::{handle_dns_packet, handle_sni};
+use crate::model::{Attribution, Protocol, StatsMap};
+use crate::parse::handle_dns_packet;
 
 pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<Attribution>) {
     std::thread::spawn(move || {
@@ -57,19 +57,6 @@ pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<At
                 _ => continue,
             };
 
-            // Try to extract hostname into attribution
-            if protocol == Protocol::Udp && (src_port == 53 || dst_port == 53) {
-                handle_dns_packet(payload, &attribution);
-            }
-            if protocol == Protocol::Tcp && dst_port == 443 && !payload.is_empty() {
-                let endpoint = RemoteEndpoint {
-                    ip: dst_ip,
-                    port: dst_port,
-                    protocol,
-                };
-                handle_sni(endpoint, payload, &attribution);
-            }
-
             // Determine direction
             let Some(remote_ip) = attribution.remote_ip(src_ip, dst_ip) else {
                 continue;
@@ -77,13 +64,12 @@ pub fn spawn_capture_thread(device: Device, stats: StatsMap, attribution: Arc<At
             let is_outgoing = remote_ip == dst_ip;
 
             // Resolve hostname
-            let remote_port = if is_outgoing { dst_port } else { src_port };
-            let endpoint = RemoteEndpoint {
-                ip: remote_ip,
-                port: remote_port,
-                protocol,
-            };
-            let hostname = attribution.resolve(&endpoint);
+            let hostname = attribution.resolve(&remote_ip).or_else(|| {
+                if protocol == Protocol::Udp && (src_port == 53 || dst_port == 53) {
+                    handle_dns_packet(payload, &attribution);
+                }
+                attribution.resolve(&remote_ip)
+            });
 
             // Update stats
             let mut entry = stats.entry(remote_ip).or_default();

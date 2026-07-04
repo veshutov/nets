@@ -1,8 +1,7 @@
 use hickory_proto::op::Message;
 use hickory_proto::rr::RecordType;
-use tls_parser::{TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_plaintext};
 
-use crate::model::{Attribution, RemoteEndpoint};
+use crate::model::Attribution;
 
 pub fn handle_dns_packet(payload: &[u8], attribution: &Attribution) {
     let Ok(msg) = Message::from_vec(payload) else {
@@ -17,29 +16,4 @@ pub fn handle_dns_packet(payload: &[u8], attribution: &Attribution) {
             }
         }
     }
-}
-
-pub fn handle_sni(endpoint: RemoteEndpoint, tcp_payload: &[u8], attribution: &Attribution) {
-    if let Some(hostname) = extract_sni(tcp_payload) {
-        attribution.record_sni(endpoint, hostname);
-    }
-}
-
-fn extract_sni(tcp_payload: &[u8]) -> Option<String> {
-    let (_, record) = parse_tls_plaintext(tcp_payload).ok()?;
-
-    for msg in record.msg {
-        if let TlsMessage::Handshake(TlsMessageHandshake::ClientHello(ch)) = msg {
-            let ext_bytes = ch.ext?;
-            let (_, extensions) = tls_parser::parse_tls_extensions(ext_bytes).ok()?;
-            for ext in extensions {
-                if let TlsExtension::SNI(sni_list) = ext {
-                    if let Some((_, hostname)) = sni_list.first() {
-                        return Some(String::from_utf8_lossy(hostname).to_string());
-                    }
-                }
-            }
-        }
-    }
-    None
 }
