@@ -1,6 +1,6 @@
 use hickory_proto::op::Message;
 use hickory_proto::rr::RecordType;
-use tls_parser::{parse_tls_plaintext, TlsMessage, TlsMessageHandshake, TlsExtension};
+use tls_parser::{TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_plaintext};
 
 use crate::model::Attribution;
 
@@ -36,4 +36,13 @@ pub fn extract_sni(tcp_payload: &[u8]) -> Option<String> {
         }
     }
     None
+}
+
+pub fn strip_link_layer(data: &[u8], linktype: pcap::Linktype) -> Option<&[u8]> {
+    match linktype {
+        pcap::Linktype::ETHERNET => data.get(14..),
+        pcap::Linktype::NULL | pcap::Linktype::LOOP => data.get(4..),
+        pcap::Linktype::RAW => Some(data),
+        _ => None,
+    }
 }
